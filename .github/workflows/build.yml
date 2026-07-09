@@ -32,16 +32,40 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Install build-tools
+    - name: Accept licenses and install build-tools
       run: |
+        # ✅ قبول کردن همه لایسنس‌ها
+        yes | sdkmanager --licenses
+        
+        # ✅ نصب build-tools نسخه 30.0.3
         sdkmanager "build-tools;30.0.3"
         sdkmanager "platforms;android-30"
+        sdkmanager "platform-tools"
+        
+        # ✅ تنظیم مسیر
         echo "$ANDROID_SDK_ROOT/build-tools/30.0.3" >> $GITHUB_PATH
+        
+        # ✅ بررسی نصب
+        echo "🔍 بررسی فایل‌های نصب شده:"
+        ls -la $ANDROID_SDK_ROOT/build-tools/ || echo "build-tools پوشه وجود ندارد"
+        ls -la $ANDROID_SDK_ROOT/build-tools/30.0.3/ || echo "نسخه 30.0.3 وجود ندارد"
 
     - name: Verify aidl
       run: |
-        which aidl || echo "aidl not in PATH"
-        find $ANDROID_SDK_ROOT -name aidl 2>/dev/null || echo "aidl not found"
+        echo "🔍 جستجوی aidl:"
+        find $ANDROID_SDK_ROOT -name "aidl" -type f 2>/dev/null || echo "❌ aidl پیدا نشد"
+        
+        # اگر aidl در مسیرهای مختلف هست
+        if [ -f "$ANDROID_SDK_ROOT/build-tools/30.0.3/aidl" ]; then
+          echo "✅ aidl پیدا شد در: $ANDROID_SDK_ROOT/build-tools/30.0.3/"
+          echo "$ANDROID_SDK_ROOT/build-tools/30.0.3" >> $GITHUB_PATH
+        elif [ -f "$ANDROID_SDK_ROOT/build-tools/34.0.0/aidl" ]; then
+          echo "✅ aidl پیدا شد در: $ANDROID_SDK_ROOT/build-tools/34.0.0/"
+          echo "$ANDROID_SDK_ROOT/build-tools/34.0.0" >> $GITHUB_PATH
+        else
+          echo "❌ aidl پیدا نشد! نصب مجدد..."
+          sdkmanager "build-tools;30.0.3"
+        fi
 
     - name: Install buildozer
       run: |
