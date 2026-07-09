@@ -5,12 +5,12 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # اجازه اجرای دستی
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 45  # محدودیت زمان
+    timeout-minutes: 45
     
     steps:
       - name: Checkout code
@@ -21,26 +21,12 @@ jobs:
         with:
           python-version: '3.11'
 
-      # ==================== نصب Java (پیش‌نیاز اندروید) ====================
+      # ==================== نصب Java ====================
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-
-      # ==================== نصب Android SDK ====================
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      # ==================== نصب build-tools (شامل aidl) ====================
-      - name: Install Android build-tools
-        run: |
-          sdkmanager "build-tools;34.0.0"
-          sdkmanager "platforms;android-33"
-
-      # ==================== اضافه کردن build-tools به PATH ====================
-      - name: Add build-tools to PATH
-        run: echo "$ANDROID_SDK_ROOT/build-tools/34.0.0" >> $GITHUB_PATH
 
       # ==================== نصب وابستگی‌های سیستم ====================
       - name: Install system dependencies
@@ -63,45 +49,60 @@ jobs:
             libltdl-dev \
             llvm \
             llvm-dev \
-            ccache
+            ccache \
+            wget
 
-      # ==================== نصب Buildozer ====================
+      # ==================== نصب دستی Android SDK ====================
+      - name: Install Android SDK manually
+        run: |
+          # ایجاد پوشه برای Android SDK
+          mkdir -p $HOME/android-sdk
+          cd $HOME/android-sdk
+          
+          # دانلود Command Line Tools
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip commandlinetools-linux-9477386_latest.zip
+          mv cmdline-tools latest
+          mkdir -p cmdline-tools
+          mv latest cmdline-tools/
+          
+          # تنظیم مسیرها
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+          echo "$HOME/android-sdk/build-tools/34.0.0" >> $GITHUB_PATH
+          
+          # نصب build-tools و platform
+          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0"
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-33"
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
+
+      # ==================== نصب Python packages ====================
       - name: Install Python packages
         run: |
           pip install --upgrade pip
           pip install buildozer cython
-
-      # ==================== تنظیمات buildozer.spec ====================
-      - name: Configure buildozer.spec
-        run: |
-          # پشتیبان‌گیری از فایل اصلی
-          cp buildozer.spec buildozer.spec.backup
-          
-          # نمایش محتوای فایل برای بررسی
-          echo "📄 محتوای buildozer.spec:"
-          cat buildozer.spec
 
       # ==================== ساخت APK ====================
       - name: Build APK
         run: |
           buildozer android debug deploy run
         env:
-          # افزایش حافظه برای ساخت
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
           GRADLE_OPTS: "-Xmx2048m -Dorg.gradle.jvmargs=-Xmx2048m"
           JAVA_OPTS: "-Xmx2048m"
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
 
-      # ==================== نمایش فایل‌های ساخته شده ====================
+      # ==================== نمایش فایل‌ها ====================
       - name: List built files
         run: |
           echo "📁 فایل‌های ساخته شده:"
           ls -la bin/ || echo "پوشه bin وجود ندارد"
-          echo "🔍 جستجوی APK در کل پروژه:"
           find . -name "*.apk" -type f
 
       # ==================== آپلود APK ====================
       - name: Upload APK
-        if: success()  # فقط اگر ساخت موفق بود
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: speech-app-android
