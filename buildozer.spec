@@ -1,5 +1,5 @@
 [app]
-
+ 
 title = My Speech App
 package.name = myapp
 package.domain = org.example
