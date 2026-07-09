@@ -45,19 +45,23 @@ jobs:
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
         unzip -o commandlinetools-linux-9477386_latest.zip
         
-        # ساختار صحیح
+        # ✅ ساختار صحیح - بدون خطای mv
         mkdir -p cmdline-tools
-        mv cmdline-tools cmdline-tools/latest
+        cp -r cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+        rm -rf cmdline-tools/bin cmdline-tools/lib cmdline-tools/source.properties cmdline-tools/NOTICE.txt
+        
+        # ✅ یا روش ساده‌تر: مستقیماً از پوشه cmdline-tools استفاده کن
+        # در اینجا ما از مسیر cmdline-tools استفاده می‌کنیم نه cmdline-tools/latest
         
         # تنظیم مسیرها
         echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        echo "$HOME/android-sdk/cmdline-tools/bin" >> $GITHUB_PATH
         
         # نصب build-tools
-        yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-30"
-        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
+        yes | $HOME/android-sdk/cmdline-tools/bin/sdkmanager --licenses
+        $HOME/android-sdk/cmdline-tools/bin/sdkmanager "build-tools;30.0.3"
+        $HOME/android-sdk/cmdline-tools/bin/sdkmanager "platforms;android-30"
+        $HOME/android-sdk/cmdline-tools/bin/sdkmanager "platform-tools"
         
         # مسیر build-tools
         echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
@@ -66,7 +70,7 @@ jobs:
     - name: Verify SDK
       run: |
         echo "🔍 بررسی SDK:"
-        ls -la $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/ | head -10
+        ls -la $ANDROID_SDK_ROOT/cmdline-tools/bin/ | head -10
         echo "✅ مسیرها تنظیم شدند"
 
     - name: Install buildozer
