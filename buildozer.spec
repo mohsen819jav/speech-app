@@ -1,7 +1,7 @@
 [app]
  
-title = My Speech App
-package.name = myapp
+title = Speech to Text
+package.name = speechapp
 package.domain = org.example
 
 source.dir = .
@@ -9,7 +9,8 @@ source.include_exts = py,png,jpg,kv,atlas,ttf
 
 version = 0.1
 
-requirements = python3,kivy,python-bidi,arabic-reshaper
+# ⚠️ فقط کتابخانه‌های ضروری (بدون pyaudio و vosk)
+requirements = python3==3.11.0,kivy==2.2.1,arabic-reshaper,python-bidi==0.4.2
 
 orientation = portrait
 
@@ -18,10 +19,13 @@ osx.kivy_version = 2.3.0
 
 fullscreen = 0
 
-android.permissions = INTERNET, RECORD_AUDIO
-android.api = 30
+# مجوزهای اندروید
+android.permissions = INTERNET,RECORD_AUDIO
+android.api = 33
 android.minapi = 21
 android.ndk = 25c
+android.sdk = 33
+android.enable_androidx = True
 
 [buildozer]
 
