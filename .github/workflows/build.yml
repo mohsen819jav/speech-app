@@ -17,31 +17,37 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Set up Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git zip unzip python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev llvm ccache
+        sudo apt-get install -y git zip unzip python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev llvm ccache openjdk-17-jdk wget
 
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-
-    - name: Install build-tools
+    - name: Install Android SDK manually
       run: |
-        sdkmanager --list
-        sdkmanager "build-tools;30.0.3"
-        sdkmanager "platforms;android-30"
-        echo "$ANDROID_SDK_ROOT/build-tools/30.0.3" >> $GITHUB_PATH
+        mkdir -p $HOME/android-sdk
+        cd $HOME/android-sdk
+        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -o commandlinetools-linux-9477386_latest.zip
+        mkdir -p cmdline-tools
+        mv cmdline-tools cmdline-tools/temp
+        mv cmdline-tools/temp cmdline-tools/latest
+        
+        export ANDROID_SDK_ROOT=$HOME/android-sdk
+        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        
+        yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-30"
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
+        
+        echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
+        echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
 
     - name: Verify aidl
       run: |
-        which aidl || echo "aidl not in PATH"
-        find $ANDROID_SDK_ROOT -name aidl 2>/dev/null || echo "aidl not found"
+        ls -la $ANDROID_SDK_ROOT/build-tools/30.0.3/
+        $ANDROID_SDK_ROOT/build-tools/30.0.3/aidl --version || echo "aidl exists"
 
     - name: Install buildozer
       run: |
