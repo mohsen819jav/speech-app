@@ -9,7 +9,7 @@ source.include_exts = py,png,jpg,kv,atlas,ttf
 
 version = 0.1
 
-requirements = python3,kivy,pyjnius,android,audiostream,openssl,setuptools,cython,ffpyplayer,pygments,python-bidi,arabic-reshaper
+requirements = python3,kivy,pyjnius,android,audiostream,openssl,setuptools,cython,python-bidi,arabic-reshaper
 
 orientation = portrait
 
