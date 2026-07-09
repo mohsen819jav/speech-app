@@ -21,7 +21,7 @@ fullscreen = 0
 android.permissions = INTERNET, RECORD_AUDIO
 android.api = 30
 android.minapi = 21
-android.ndk = 23c
+android.ndk = 25c
 
 [buildozer]
 
