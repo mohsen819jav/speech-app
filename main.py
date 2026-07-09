@@ -33,10 +33,9 @@ def reshape_persian_text(text):
 
 # ==================== کلاس تشخیص گفتار با Android ====================
 class AndroidSpeechRecognizer:
-    def __init__(self):
+    def __init__(self, callback=None):
         self.is_listening = False
-        self.text_queue = []
-        self.raw_text = ""
+        self.callback = callback  # تابع برای دریافت نتیجه
         
     def start_listening(self):
         """شروع تشخیص گفتار با استفاده از سرویس اندروید"""
@@ -45,7 +44,7 @@ class AndroidSpeechRecognizer:
             
         try:
             from android.permissions import request_permissions, Permission
-            from jnius import autoclass, cast
+            from jnius import autoclass
             from android.activity import activity
             
             # درخواست مجوزها
@@ -79,23 +78,36 @@ class AndroidSpeechRecognizer:
         self.is_listening = False
         print("⏹️ تشخیص گفتار متوقف شد")
     
-    def process_result(self, requestCode, resultCode, data):
-        """پردازش نتیجه تشخیص گفتار"""
+    def on_activity_result(self, requestCode, resultCode, data):
+        """پردازش نتیجه تشخیص گفتار - این متد توسط اکتیویتی صدا زده میشه"""
         if requestCode == 1001 and resultCode == -1:  # RESULT_OK
             try:
+                from jnius import autoclass
                 RecognizerIntent = autoclass('android.speech.RecognizerIntent')
                 results = data.getStringArrayListExtra(
                     RecognizerIntent.EXTRA_RESULTS
                 )
                 if results and results.size() > 0:
                     text = results.get(0)  # بهترین نتیجه
-                    if text:
-                        self.text_queue.append(text)
+                    if text and self.callback:
+                        self.callback(text)
                         print(f"✅ متن تشخیص داده شد: {text}")
                         return text
             except Exception as e:
                 print(f"❌ خطا در پردازش نتیجه: {e}")
         return None
+
+# ==================== اکتیویتی اصلی اندروید ====================
+class MainActivity:
+    """کلاس برای مدیریت نتیجه تشخیص گفتار از اندروید"""
+    @staticmethod
+    def on_activity_result(requestCode, resultCode, data):
+        """این متد توسط اندروید صدا زده میشه"""
+        # نتیجه رو به اپلیکیشن اصلی می‌فرستیم
+        if hasattr(SpeechApp, 'current_recognizer'):
+            recognizer = SpeechApp.current_recognizer
+            if recognizer:
+                recognizer.on_activity_result(requestCode, resultCode, data)
 
 # ==================== رابط کاربری اصلی ====================
 class MainLayout(BoxLayout):
@@ -152,7 +164,7 @@ class MainLayout(BoxLayout):
         btn_clear.bind(on_press=self.clear_text)
         self.add_widget(btn_clear)
 
-        # دکمه تست (برای تست تشخیص)
+        # دکمه تست
         btn_test = Button(
             text="🧪 تست میکروفون",
             font_size='14sp',
@@ -164,12 +176,30 @@ class MainLayout(BoxLayout):
         self.add_widget(btn_test)
 
         # متغیرها
-        self.recognizer = AndroidSpeechRecognizer()
+        self.recognizer = AndroidSpeechRecognizer(callback=self.on_speech_result)
         self.is_listening = False
         self.raw_text = ""
         
+        # ذخیره در اپ برای دسترسی از اکتیویتی
+        SpeechApp.current_recognizer = self.recognizer
+        
         # بروزرسانی هر ۰٫۵ ثانیه
         Clock.schedule_interval(self.update_text, 0.5)
+
+    def on_speech_result(self, text):
+        """دریافت نتیجه تشخیص گفتار"""
+        if text:
+            self.raw_text += text + "\n"
+            # محدود کردن به ۲۰ خط آخر
+            lines = self.raw_text.split('\n')
+            if len(lines) > 20:
+                lines = lines[-20:]
+                self.raw_text = '\n'.join(lines)
+            
+            # نمایش با فرمت فارسی
+            display_text = reshape_persian_text(self.raw_text)
+            self.text_label.text = display_text
+            self.scroll.scroll_y = 0
 
     def test_microphone(self, instance):
         """تست میکروفون و مجوزها"""
@@ -196,22 +226,8 @@ class MainLayout(BoxLayout):
             self.btn_start.background_color = (0, 0.7, 0.2, 1)
 
     def update_text(self, dt):
-        """بروزرسانی متن نمایش داده شده"""
-        if self.is_listening and self.recognizer.text_queue:
-            for text in self.recognizer.text_queue:
-                self.raw_text += text + "\n"
-            self.recognizer.text_queue = []  # پاک کردن صف
-            
-            # محدود کردن به ۲۰ خط آخر
-            lines = self.raw_text.split('\n')
-            if len(lines) > 20:
-                lines = lines[-20:]
-                self.raw_text = '\n'.join(lines)
-            
-            # نمایش با فرمت فارسی
-            display_text = reshape_persian_text(self.raw_text)
-            self.text_label.text = display_text
-            self.scroll.scroll_y = 0
+        """بروزرسانی متن (برای نمایش وضعیت)"""
+        pass  # الان نتیجه از طریق callback دریافت میشه
 
     def clear_text(self, instance):
         """پاک کردن متن"""
@@ -219,12 +235,28 @@ class MainLayout(BoxLayout):
         self.text_label.text = reshape_persian_text("متن پاک شد.\nبرای شروع دکمه را بزنید...")
 
 class SpeechApp(App):
+    current_recognizer = None  # برای دسترسی از اکتیویتی
+    
     def build(self):
         return MainLayout()
 
     def on_start(self):
         """هنگام شروع اپلیکیشن"""
         print("✅ برنامه شروع شد")
+        # تنظیم اکتیویتی برای دریافت نتیجه
+        try:
+            from android.activity import activity
+            from kivy import platform
+            if platform == 'android':
+                # ثبت callback برای دریافت نتیجه
+                activity.bind(on_activity_result=self.on_activity_result)
+        except:
+            pass
+
+    def on_activity_result(self, requestCode, resultCode, data):
+        """دریافت نتیجه از اندروید"""
+        if self.current_recognizer:
+            self.current_recognizer.on_activity_result(requestCode, resultCode, data)
 
     def on_stop(self):
         """هنگام بستن اپلیکیشن"""
@@ -232,4 +264,4 @@ class SpeechApp(App):
             self.root.recognizer.stop_listening()
 
 if __name__ == '__main__':
-    SpeechApp().run() 
+    SpeechApp().run()
