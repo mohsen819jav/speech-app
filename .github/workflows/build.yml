@@ -22,9 +22,8 @@ jobs:
         run: |
           pip install buildozer cython
 
-      - name: Initialize and Build
+      - name: Build APK
         run: |
-          buildozer init
           sed -i 's/^#requirements = python3,kivy/requirements = python3,kivy,pyjnius,android,audiostream,openssl,setuptools,cython,libffi-dev,libssl-dev,ffpyplayer,pygments,python-bidi,arabic-reshaper/' buildozer.spec
           sed -i 's/^#android.permissions = INTERNET/android.permissions = INTERNET, RECORD_AUDIO/' buildozer.spec
           sed -i 's/^#android.api = 30/android.api = 30/' buildozer.spec
