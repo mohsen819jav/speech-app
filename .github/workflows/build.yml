@@ -11,7 +11,8 @@ jobs:
     timeout-minutes: 45
     
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -24,14 +25,6 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    # ✅ استفاده از Action آماده برای Android SDK
-    - name: Set up Android SDK
-      uses: malinskiy/action-android@release
-      with:
-        build-tools: 30.0.3
-        platforms: android-30
-        cmdline-tools: latest
-
     - name: Install system dependencies
       run: |
         sudo apt-get update
@@ -40,19 +33,41 @@ jobs:
           autoconf libtool pkg-config \
           zlib1g-dev libncurses5-dev libncursesw5-dev \
           cmake libffi-dev libssl-dev \
-          llvm ccache
+          llvm ccache wget
 
-    - name: Set Android SDK path
+    - name: Install Android SDK
       run: |
-        echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
-        echo "$ANDROID_HOME/build-tools/30.0.3" >> $GITHUB_PATH
-        echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
-        echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        # پوشه SDK
+        mkdir -p $HOME/android-sdk
+        cd $HOME/android-sdk
+        
+        # دانلود Command Line Tools
+        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -o commandlinetools-linux-9477386_latest.zip
+        
+        # ساختار صحیح
+        mkdir -p cmdline-tools
+        mv cmdline-tools cmdline-tools/latest
+        
+        # تنظیم مسیرها
+        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        
+        # نصب build-tools
+        yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3"
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-30"
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
+        
+        # مسیر build-tools
+        echo "$HOME/android-sdk/build-tools/30.0.3" >> $GITHUB_PATH
+        echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
 
     - name: Verify SDK
       run: |
-        which sdkmanager || echo "sdkmanager not in PATH"
-        find $ANDROID_HOME -name "aidl" 2>/dev/null | head -5
+        echo "🔍 بررسی SDK:"
+        ls -la $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/ | head -10
+        echo "✅ مسیرها تنظیم شدند"
 
     - name: Install buildozer
       run: |
